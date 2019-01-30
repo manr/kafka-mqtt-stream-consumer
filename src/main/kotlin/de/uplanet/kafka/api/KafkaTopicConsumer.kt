@@ -10,11 +10,13 @@ import java.util.*
 
 class KafkaTopicConsumer(p_props: Properties,
                          p_topic: String,
+                         p_limit: Long,
                          p_jedisPool: JedisPool) : Runnable {
 
     private val consumer = KafkaConsumer<String, GenericRecord>(p_props)
     private val topic = p_topic
     private val jedisPool = p_jedisPool
+    private val limit = p_limit
 
     override fun run() {
         consumer.subscribe(listOf(topic))
@@ -23,15 +25,14 @@ class KafkaTopicConsumer(p_props: Properties,
         jedisClient.use { jedis ->
             consumer.use { consumer ->
                 while (true) {
-                    val records = consumer.poll(Duration.of(10, ChronoUnit.SECONDS))
+                    val records = consumer.poll(Duration.of(1, ChronoUnit.MINUTES))
 
                     if (records != null) {
                         for (record in records) {
-                            println(record.value().get("ID"))
                             println(record.value())
 
                             jedis.lpush(topic, record.value().toString())
-                            jedis.ltrim(topic, 0, 999)
+                            jedis.ltrim(topic, 0, limit)
                         }
                     }
                 }
