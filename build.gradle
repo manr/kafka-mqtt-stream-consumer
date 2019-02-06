@@ -38,3 +38,11 @@ application {
     mainClassName = "de.uplanet.kafka.api.Main"
 }
 
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'de.uplanet.kafka.api.Main'
+    }
+    baseName = 'mqtt-stream-consumer-service'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}

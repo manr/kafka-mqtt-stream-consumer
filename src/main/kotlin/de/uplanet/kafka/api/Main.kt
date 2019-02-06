@@ -30,14 +30,14 @@ object Main {
         kafkaProps["value.deserializer"] = KafkaAvroDeserializer::class.java.name
         kafkaProps["schema.registry.url"] = "http://localhost:8081"
 
-        val c1 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_STREAM_MACHINE1", 999, jedisPool)
-        val c2 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_STREAM_MACHINE2", 999, jedisPool)
-        val c3 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_TOTAL_MACHINE1", 0, jedisPool)
-        val c4 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_TOTAL_MACHINE2", 0, jedisPool)
-        val c5 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_STREAM_STATUS_MACHINE1", 0, jedisPool)
-        val c6 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_STREAM_STATUS_MACHINE2", 0, jedisPool)
-        val c7 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_QUALITY_MACHINE1", 0, jedisPool)
-        val c8 = KafkaTopicConsumer(kafkaProps, "UP_IOT_PROD_QUALITY_MACHINE2", 0, jedisPool)
+        val c1 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PRODUCTION_MACHINE1", 999, jedisPool)
+        val c2 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PRODUCTION_MACHINE2", 999, jedisPool)
+        val c3 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1", 0, jedisPool)
+        val c4 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2", 0, jedisPool)
+        val c5 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE1", 0, jedisPool)
+        val c6 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE2", 0, jedisPool)
+        val c7 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_QUALITY_MACHINE1", 0, jedisPool)
+        val c8 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_QUALITY_MACHINE2", 0, jedisPool)
 
         val executorService = Executors.newCachedThreadPool()
         executorService.submit(c1)
@@ -52,58 +52,30 @@ object Main {
         val wsProducer = WebSocketsEventProducer(wsSessions, jedisPool)
         executorService.submit(wsProducer)
 
-        val app = Javalin.create().start(7000)
+        val app = Javalin.create().start(8080)
 
         app.get("/") { ctx ->
             val machines = listOf(mapOf(Pair("name", "test_machine_1"),
-                                        Pair("prodUrl", "/test_machine_1"),
-                                        Pair("statusUrl", "/test_machine_1/status"),
-                                        Pair("totalUrl", "/test_machine_1/total"),
-                                        Pair("totalUrl", "/test_machine_1/quality")),
+                                        Pair("prodUrl", "/machine/STREAM_UP_IOT_PRODUCTION_MACHINE1"),
+                                        Pair("totalUrl", "/machine/STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1"),
+                                        Pair("qualityUrl", "/machine/STREAM_UP_IOT_PROD_QUALITY_MACHINE1")),
                                   mapOf(Pair("name", "test_machine_2"),
-                                        Pair("prodUrl", "/test_machine_2"),
-                                        Pair("statusUrl", "/test_machine_2/status"),
-                                        Pair("totalUrl", "/test_machine_2/total")))
+                                        Pair("prodUrl", "/machine/STREAM_UP_IOT_PRODUCTION_MACHINE2"),
+                                        Pair("totalUrl", "/machine/STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2"),
+                                        Pair("qualityUrl","/machine/STREAM_UP_IOT_PROD_QUALITY_MACHINE2")))
             ctx.json(machines)
         }
 
-        app.get("/test_machine_1") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_STREAM_MACHINE1", jedisPool)
+        app.get("/machine/:topic") { ctx ->
+            handleGetMachineData(ctx, ctx.pathParam("topic"), jedisPool)
         }
 
-        app.get("/test_machine_2") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_STREAM_MACHINE2", jedisPool)
-        }
 
-        app.get("/test_machine_1/total") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_TOTAL_MACHINE1", jedisPool)
-        }
-
-        app.get("/test_machine_2/total") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_TOTAL_MACHINE2", jedisPool)
-        }
-
-        app.get("/test_machine_1/status") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_STREAM_STATUS_MACHINE1", jedisPool)
-        }
-
-        app.get("/test_machine_2/status") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_STREAM_STATUS_MACHINE2", jedisPool)
-        }
-
-        app.get("/test_machine_1/quality") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_QUALITY_MACHINE1", jedisPool)
-        }
-
-        app.get("/test_machine_2/quality") { ctx ->
-            handleGetMachineData(ctx, "UP_IOT_PROD_QUALITY_MACHINE2", jedisPool)
-        }
-
-        app.get("/stream") { ctx ->
+        app.get("/ws/stream") { ctx ->
             ctx.html(wsIndex)
         }
 
-        app.ws("/ws/:machine") { ws ->
+        app.ws("/ws/stream/:machine") { ws ->
             ws.onConnect { session ->
                 wsSessions[session] = session.pathParam("machine")
                 println("WS connected")
@@ -119,7 +91,6 @@ object Main {
             ws.onError { _, throwable -> println("Error ${throwable?.message}") }
         }
     }
-
 
     private fun handleGetMachineData(ctx: Context, topic: String, jedisPool: JedisPool) {
         val top = java.lang.Long.parseLong(ctx.queryParam("top", "20"))
@@ -154,25 +125,33 @@ object Main {
                    //alert("WebSocket is supported by your Browser!");
 
                    // Let us open a web socket
-                   ws = new WebSocket("ws://localhost:7000/ws/" + document.getElementById('topic').value);
+                   ws = new WebSocket("ws://upiotstreams.westeurope.cloudapp.azure.com:8080/ws/stream/" + document.getElementById('topic').value);
 
                    ws.onopen = function() {
 
                       // Web Socket is connected, send data using send()
-                      ws.send("Message to send");
-                      console.log("Message is sent...");
+                      console.log("Connection established...");
+                      //ws.send("Message to send");
+
+                      var div = document.getElementById('divID');
+
+                      div.innerHTML = '';
                    };
 
                    ws.onmessage = function (evt) {
                       var received_msg = evt.data;
                       //alert("Message is received..." + evt.data);
                       console.log(evt.data)
+                      
+                      var div = document.getElementById('divID');
+
+                      div.innerHTML += evt.data+'<br/>';
                    };
 
                    ws.onclose = function() {
 
                       // websocket is closed.
-                      alert("Connection is closed...");
+                      console.log("Connection is closed...");
                    };
                 } else {
 
@@ -186,11 +165,28 @@ object Main {
 
        <body>
           <div id = "sse">
-             <input type="text" id="topic" size="50"/><br/>
+             <select id="topic">
+                  <option value="STREAM_UP_IOT_PRODUCTION_MACHINE1">STREAM_UP_IOT_PRODUCTION_MACHINE1</option>
+
+                <option value="STREAM_UP_IOT_PRODUCTION_MACHINE2">STREAM_UP_IOT_PRODUCTION_MACHINE2</option>
+
+                <option value="STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1">STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1</option>
+
+                <option value="STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2">STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2</option>
+
+                <option value="STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE1">STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE1</option>
+
+                <option value="STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE2">STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE2</option>
+
+                <option value="STREAM_UP_IOT_PROD_QUALITY_MACHINE1">STREAM_UP_IOT_PROD_QUALITY_MACHINE1</option>
+
+                <option value="STREAM_UP_IOT_PROD_QUALITY_MACHINE2">STREAM_UP_IOT_PROD_QUALITY_MACHINE2</option>
+              </select>
+              <br/>
              <a href = "javascript:WebSocketTest()">Run WebSocket</a><br/>
              <a href = "javascript:StopWebSocketTest()">Stop WebSocket</a>
           </div>
-
+          <div id="divID"></div>
        </body>
     </html>"""
 }
