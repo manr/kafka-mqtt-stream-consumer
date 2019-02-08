@@ -27,14 +27,17 @@ class KafkaTopicConsumer(p_props: Properties,
                     val records = consumer.poll(Duration.of(1, ChronoUnit.MINUTES))
 
                     if (records != null) {
+                        val topicList = mutableSetOf<String>()
                         for (record in records) {
                             println(record.value())
 
                             jedis.lpush(record.topic(), record.value().toString())
                             val limit = limitsByTopic[record.topic()] ?: 0
                             jedis.ltrim(record.topic(), 0, limit)
-                            jedis.publish("TOPIC_UPDATES", record.topic())
+                            topicList.add(record.topic())
                         }
+
+                        jedis.publish("TOPIC_UPDATES", topicList.joinToString())
                     }
                 }
             }

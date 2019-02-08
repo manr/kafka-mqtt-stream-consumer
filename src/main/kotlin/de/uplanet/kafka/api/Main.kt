@@ -108,7 +108,10 @@ object Main {
         ctx.result(json.toString())
     }
 
-    private val wsIndex = """<!DOCTYPE HTML>
+    private const val host = "upiotstreams.westeurope.cloudapp.azure.com:8080"
+    //private const val host = "localhost:8080"
+
+    private const val wsIndex = """<!DOCTYPE HTML>
     <html>
        <head>
 
@@ -124,7 +127,7 @@ object Main {
                    //alert("WebSocket is supported by your Browser!");
 
                    // Let us open a web socket
-                   ws = new WebSocket("ws://upiotstreams.westeurope.cloudapp.azure.com:8080/ws/stream/" + document.getElementById('topic').value);
+                   ws = new WebSocket("ws://$host/ws/stream/" + document.getElementById('topic').value);
 
                    ws.onopen = function() {
 
@@ -165,7 +168,7 @@ object Main {
        <body>
           <div id = "sse">
              <select id="topic">
-                  <option value="STREAM_UP_IOT_PRODUCTION_MACHINE1">STREAM_UP_IOT_PRODUCTION_MACHINE1</option>
+                <option value="STREAM_UP_IOT_PRODUCTION_MACHINE1">STREAM_UP_IOT_PRODUCTION_MACHINE1</option>
 
                 <option value="STREAM_UP_IOT_PRODUCTION_MACHINE2">STREAM_UP_IOT_PRODUCTION_MACHINE2</option>
 

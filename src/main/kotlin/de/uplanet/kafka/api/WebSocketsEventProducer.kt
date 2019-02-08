@@ -22,10 +22,13 @@ class Subscriber(private val sessions: Map<WsSession, String>, private val jedis
     : JedisPubSub() {
 
     override fun onMessage(channel: String?, message: String?) {
+        val topics = message?.split(",")
+        val topicSet = topics?.toSet()
+
         if (channel == "TOPIC_UPDATES") {
             jedisPool.resource.use { jedis ->
                 sessions.forEach { ws, topic ->
-                    if (message == topic) {
+                    if (topicSet?.contains(topic) == true) {
                         val data = getMachineData(topic, 0, 1, jedis)
                         if (data != "")
                             ws.send(data)
