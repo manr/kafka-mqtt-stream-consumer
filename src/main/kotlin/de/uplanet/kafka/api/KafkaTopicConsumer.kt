@@ -9,17 +9,16 @@ import java.util.*
 
 
 class KafkaTopicConsumer(p_props: Properties,
-                         p_topic: String,
-                         p_limit: Long,
+                         p_topics: List<ConsumerTopic>,
                          p_jedisPool: JedisPool) : Runnable {
 
     private val consumer = KafkaConsumer<String, GenericRecord>(p_props)
-    private val topic = p_topic
+    private val topics = p_topics
     private val jedisPool = p_jedisPool
-    private val limit = p_limit
+    private val limitsByTopic = topics.associate { ct -> (ct.name to ct.limit) }
 
     override fun run() {
-        consumer.subscribe(listOf(topic))
+        consumer.subscribe(topics.map { ct -> ct.name })
 
         val jedisClient = jedisPool.resource
         jedisClient.use { jedis ->
@@ -31,8 +30,10 @@ class KafkaTopicConsumer(p_props: Properties,
                         for (record in records) {
                             println(record.value())
 
-                            jedis.lpush(topic, record.value().toString())
-                            jedis.ltrim(topic, 0, limit)
+                            jedis.lpush(record.topic(), record.value().toString())
+                            val limit = limitsByTopic[record.topic()] ?: 0
+                            jedis.ltrim(record.topic(), 0, limit)
+                            jedis.publish("TOPIC_UPDATES", record.topic())
                         }
                     }
                 }

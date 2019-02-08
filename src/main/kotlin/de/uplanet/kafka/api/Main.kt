@@ -12,6 +12,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 
+data class ConsumerTopic(val name: String, val limit: Long)
+
 object Main {
     private val wsSessions = ConcurrentHashMap<WsSession, String>()
 
@@ -30,24 +32,21 @@ object Main {
         kafkaProps["value.deserializer"] = KafkaAvroDeserializer::class.java.name
         kafkaProps["schema.registry.url"] = "http://localhost:8081"
 
-        val c1 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PRODUCTION_MACHINE1", 999, jedisPool)
-        val c2 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PRODUCTION_MACHINE2", 999, jedisPool)
-        val c3 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1", 0, jedisPool)
-        val c4 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2", 0, jedisPool)
-        val c5 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE1", 0, jedisPool)
-        val c6 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE2", 0, jedisPool)
-        val c7 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_QUALITY_MACHINE1", 0, jedisPool)
-        val c8 = KafkaTopicConsumer(kafkaProps, "STREAM_UP_IOT_PROD_QUALITY_MACHINE2", 0, jedisPool)
+        val topics = listOf(
+            ConsumerTopic("STREAM_UP_IOT_PRODUCTION_MACHINE1", 999),
+            ConsumerTopic("STREAM_UP_IOT_PRODUCTION_MACHINE2", 999),
+            ConsumerTopic("STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE1", 0),
+            ConsumerTopic("STREAM_UP_IOT_PROD_TOTAL_DAILY_MACHINE2", 0),
+            ConsumerTopic("STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE1", 0),
+            ConsumerTopic("STREAM_UP_IOT_PROD_TOTAL_HOURLY_MACHINE2", 0),
+            ConsumerTopic("STREAM_UP_IOT_PROD_QUALITY_MACHINE1", 0),
+            ConsumerTopic("STREAM_UP_IOT_PROD_QUALITY_MACHINE2", 0)
+        )
+
+        val consumer = KafkaTopicConsumer(kafkaProps, topics, jedisPool)
 
         val executorService = Executors.newCachedThreadPool()
-        executorService.submit(c1)
-        executorService.submit(c2)
-        executorService.submit(c3)
-        executorService.submit(c4)
-        executorService.submit(c5)
-        executorService.submit(c6)
-        executorService.submit(c7)
-        executorService.submit(c8)
+        executorService.submit(consumer)
 
         val wsProducer = WebSocketsEventProducer(wsSessions, jedisPool)
         executorService.submit(wsProducer)

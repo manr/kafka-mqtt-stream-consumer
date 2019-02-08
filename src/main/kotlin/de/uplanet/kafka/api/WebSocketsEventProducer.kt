@@ -1,8 +1,9 @@
 package de.uplanet.kafka.api
 
 import io.javalin.websocket.WsSession
-import redis.clients.jedis.JedisPool
 import redis.clients.jedis.Jedis
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.JedisPubSub
 
 class WebSocketsEventProducer(p_sessions: Map<WsSession, String>, p_jedisPool: JedisPool) : Runnable {
     private val sessions = p_sessions
@@ -11,13 +12,25 @@ class WebSocketsEventProducer(p_sessions: Map<WsSession, String>, p_jedisPool: J
     override fun run() {
         val jedisClient = jedisPool.resource
         jedisClient.use { jedis ->
-            while (true) {
+            jedis.subscribe(Subscriber(sessions, jedisPool), "TOPIC_UPDATES")
+        }
+    }
+
+}
+
+class Subscriber(private val sessions: Map<WsSession, String>, private val jedisPool: JedisPool)
+    : JedisPubSub() {
+
+    override fun onMessage(channel: String?, message: String?) {
+        if (channel == "TOPIC_UPDATES") {
+            jedisPool.resource.use { jedis ->
                 sessions.forEach { ws, topic ->
-                    val data = getMachineData(topic, 0, 1, jedis)
-                    if (data != "")
-                        ws.send(data)
+                    if (message == topic) {
+                        val data = getMachineData(topic, 0, 1, jedis)
+                        if (data != "")
+                            ws.send(data)
+                    }
                 }
-                Thread.sleep(1000)
             }
         }
     }
